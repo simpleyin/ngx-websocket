@@ -21,14 +21,31 @@ import { Socket, NgxWebsocketService } from "ngx-websocket";
 export class TestComponent {
     constructor(
         private socketSer: NgxWebsocektService;
+        private socket: Socket
     ) {}
 
-    open: void {
-        this.socketSer.open("ws://echo.websocket.org", d => {
+    open(): void {
+        this.socket = this.socketSer.open("ws://echo.websocket.org", d => {
             console.log(d.event);
+        }).on("open", d => {
+            d.websocket.send("message");
         }).on("message", d => {
             console.log(d.event.data);
+        }).on("error", d => {
+            console.error("error");
+        }).on("close", d => {
+            console.warn("closed");
         })
+    }
+
+    send(): void {
+        this.socket.send("message");
     }
 }
 ```
+
+***
+## TODO
+1. reconnect automatically
+2. ability to remove callback function
+3. add execute level for each backfunction

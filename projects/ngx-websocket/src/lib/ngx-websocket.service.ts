@@ -28,6 +28,7 @@ export class NgxWebsocketService {
     this.sockets.forEach((key, value) => {
       if (key === url) {
         //check connection state
+        console.warn("a websocket with same url has existed");
         return true;
       }
     })
