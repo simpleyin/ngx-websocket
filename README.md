@@ -25,9 +25,7 @@ export class TestComponent {
     ) {}
 
     open(): void {
-        this.socket = this.socketSer.open("ws://echo.websocket.org", d => {
-            console.log(d.event);
-        }).on("open", d => {
+        this.socket = this.socketSer.open("ws://echo.websocket.org").on("open", d => {
             d.websocket.send("message");
         }).on("message", d => {
             console.log(d.event.data);
