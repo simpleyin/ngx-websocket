@@ -11,51 +11,53 @@ export class Socket {
     private _errorObservable: Observable<any>;
     private _messageObservable: Observable<any>;
     private _closeObservable: Observable<any>;
-    private _openSubscriptions: Subscription[] = [];
-    private _errorSubscriptions: Subscription[] = [];
-    private _messageSubscriptions: Subscription[] = [];
-    private _closeSubscriptions: Subscription[] = [];
+    private _openSubscriptions: Map<number | string, Subscription>;
+    private _errorSubscriptions: Map<number | string, Subscription>;
+    private _messageSubscriptions: Map<number | string, Subscription>;
+    private _closeSubscriptions: Map<number | string, Subscription>;
 
     constructor(private url: string) {
         this.websocket = new WebSocket(url);
         this._state = "closed";
+        this._openSubscriptions = new Map();
+        this._errorSubscriptions = new Map();
+        this._messageSubscriptions = new Map();
+        this._closeSubscriptions = new Map();
         //onOpen
-        this._openObservable = new Observable((observer) => {
+        //there is no difference between new Observable and Observable.create()
+        this._openObservable = Observable.create((observer) => {
             this.websocket.addEventListener("open", (e) => {
                 this._state = "opened";
                 observer.next({
-                    event: e,
-                    websocket: this.websocket
+                    event: e
                 });
             });
         });
+
         //onError
-        this._errorObservable = new Observable((observer) => {
+        this._errorObservable = Observable.create((observer) => {
             this.websocket.addEventListener("error", (e) => {
                 console.error("websocket on error");
                 observer.next({
-                    event: e,
-                    websocket: this.websocket
+                    event: e
                 });
             })
         });
         //onMessage
-        this._messageObservable = new Observable((observer) => {
+        this._messageObservable = Observable.create((observer) => {
             this.websocket.addEventListener("message", (e) => {
                 observer.next({
-                    event: e,
-                    websocket: this.websocket
+                    event: e
                 });
             });
         });
         //onClose
-        this._closeObservable = new Observable((observer) => {
+        this._closeObservable = Observable.create((observer) => {
             this.websocket.addEventListener("close", (e) => {
                 this._state = "closed";
-                console.warn("websocekt closed");
+                console.warn("websocket closed");
                 observer.next({
-                    event: e,
-                    websocket: this.websocket
+                    event: e
                 });
             })
         });
@@ -67,12 +69,22 @@ export class Socket {
      * @param callback the callback funtion of triggered action
      * @param config? 
      */
-    public on(action: string, callback: Function, config?): Socket {
+    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, _id?: number | string,): Socket {
+        //反射得到callback中的id
+        var id: number | string;
+        var socket = this;
+        if (_id === undefined || null) {
+            id = (new Date().valueOf()) * 10000 + Math.round(Math.random() * 1000);    //timestamp as default id;
+        }
+        else {
+            id = _id;
+        }
+        console.log("id: " + id);
         
         if (action === "open") {
-            this._openSubscriptions.push(this._openObservable.subscribe({
+            this._openSubscriptions.set(id, this._openObservable.subscribe({
                 next(d) {
-                    callback(d);
+                    callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
                     console.error(msg);
@@ -80,9 +92,9 @@ export class Socket {
             }));
         }
         if (action === "error") {
-            this._errorSubscriptions.push(this._errorObservable.subscribe({
+            this._errorSubscriptions.set(id, this._errorObservable.subscribe({
                 next(d) {
-                    callback(d);
+                    callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
                     console.error(msg);
@@ -90,9 +102,9 @@ export class Socket {
             }));
         }
         if (action === "message") {
-            this._messageSubscriptions.push(this._messageObservable.subscribe({
+            this._messageSubscriptions.set(id, this._messageObservable.subscribe({
                 next(d) {
-                    callback(d);
+                    callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
                     console.error(msg);
@@ -100,9 +112,9 @@ export class Socket {
             }));
         }
         if (action === "close") {
-            this._closeSubscriptions.push(this._closeObservable.subscribe({
+            this._closeSubscriptions.set(id, this._closeObservable.subscribe({
                 next(d) {
-                    callback(d);
+                    callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
                     console.error(msg);
@@ -117,12 +129,13 @@ export class Socket {
      * send message via this websocket
      * @param message 
      */
-    public send(message: string) {
+    public send(message: string): Socket {
         try {
             this.websocket.send(message);
         } catch (e) {
             console.error(e);
         }
+        return this;
     }
 
     public get state() {
@@ -137,6 +150,21 @@ export class Socket {
             s.unsubscribe();
         })
         return this;
+    }
+    
+    /**
+     * cancle onMessage listener by id
+     * @param id 
+     */
+    public clean(id: number | string): void {
+        try {
+            //remove or unsubscribe?
+            this._messageSubscriptions.get(id).unsubscribe();
+        }
+        catch(e) {
+            throw "clean event listener error";
+        }
+        
     }
 
 

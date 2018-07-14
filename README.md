@@ -25,13 +25,14 @@ export class TestComponent {
     ) {}
 
     open(): void {
-        this.socket = this.socketSer.open("ws://echo.websocket.org").on("open", d => {
-            d.websocket.send("message");
-        }).on("message", d => {
-            console.log(d.event.data);
-        }).on("error", d => {
+        this.socket = this.socketSer.open("ws://echo.websocket.org").on("open", (data, socket, event) => {
+            socket.send("message");
+        }).on("message", (data) => {
+            sonsole.log(data);
+        }, 'id').on("error", (data, socket) => {
             console.error("error");
-        }).on("close", d => {
+            socket.clean('id'); //remove onmessage listener by id.
+        }).on("close", (data) => {
             console.warn("closed");
         })
     }
@@ -45,5 +46,5 @@ export class TestComponent {
 ***
 ## TODO
 1. reconnect automatically
-2. ability to remove callback function
+2. ability to remove callback function  (done)
 3. add execute level for each backfunction
