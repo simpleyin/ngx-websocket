@@ -1,5 +1,4 @@
 import { Observable, Subscription } from "rxjs";
-import { CallBack } from "./callBack";
 /**
  * Socket class
  * each socket handles a single WebScoket Connection.
