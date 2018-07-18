@@ -18,12 +18,18 @@ describe('NgxWebsocketService', () => {
       socket.send("hello");
     }).on("message", (data, socket, event) => {
       console.log("first");
-
     }, 'first').on("message", (data, socket, event) => {
       console.log("second");
     }, 'second').on("message", (data, socket, event) => {
       console.log(event);
       if (index > 10) socket.cleanAllMessageListener();
+    });
+  }));
+
+  it('should be created', inject([NgxWebsocketService], (service: NgxWebsocketService) => {
+    expect(service).toBeTruthy();
+    service.open("ws://echo.websocket.org").on("open", () => {
+
     });
   }));
 

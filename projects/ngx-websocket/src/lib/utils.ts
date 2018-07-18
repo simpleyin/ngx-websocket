@@ -8,4 +8,9 @@ export class Utils {
         var _f = f();
         f.arguments
     }
+
+    public static supportWebsocket(): boolean {
+        if (WebSocket === null || WebSocket === undefined) return false;
+        else return true;
+    }
 }

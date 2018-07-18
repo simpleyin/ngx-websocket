@@ -1,4 +1,5 @@
 import { Observable, Subscription } from "rxjs";
+import { Utils } from "./utils";
 /**
  * Socket class
  * each socket handles a single WebScoket Connection.
@@ -16,7 +17,12 @@ export class Socket {
     private _closeSubscriptions: Map<number | string, Subscription>;
 
     constructor(private url: string) {
-        this.websocket = new WebSocket(url);
+        try {
+            this.websocket = new WebSocket(url);
+        } catch(e) {
+             console.error("websocket isn't supported in your current runtime environment");
+             console.error(e);
+        }
         this._state = "closed";
         this._openSubscriptions = new Map();
         this._errorSubscriptions = new Map();
@@ -137,6 +143,7 @@ export class Socket {
         return this;
     }
 
+    //get state property
     public get state() {
         return this._state;
     }
@@ -152,7 +159,7 @@ export class Socket {
     }
     
     /**
-     * cancle onMessage listener by id
+     * cancel onMessage listener by id
      * @param id 
      */
     public clean(id: number | string): void {
