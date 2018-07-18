@@ -20,7 +20,6 @@ export class Socket {
         try {
             this.websocket = new WebSocket(url);
         } catch(e) {
-             console.error("websocket isn't supported in your current runtime environment");
              console.error(e);
         }
         this._state = "closed";
@@ -42,7 +41,6 @@ export class Socket {
         //onError
         this._errorObservable = Observable.create((observer) => {
             this.websocket.addEventListener("error", (e) => {
-                console.error("websocket on error");
                 observer.next({
                     event: e
                 });
@@ -60,7 +58,6 @@ export class Socket {
         this._closeObservable = Observable.create((observer) => {
             this.websocket.addEventListener("close", (e) => {
                 this._state = "closed";
-                console.warn("websocket closed");
                 observer.next({
                     event: e
                 });
@@ -71,28 +68,49 @@ export class Socket {
     /**
      * 
      * @param action action type, "open", "error", "message", "close"
-     * @param callback the callback funtion of triggered action
-     * @param config? 
+     * @param callback the callback funtion of the triggered action
+     * @param errorHandler handle error
+     * @param id the id of this action
      */
-    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, _id?: number | string,): Socket {
-        //反射得到callback中的id
-        var id: number | string;
-        var socket = this;
+    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, errorHandler: (err: any) => any, _id?: number | string,): Socket;
+    
+    /**
+     * @param action action type, "open", "error", "message", "close"
+     * @param callback the callback funtion of the triggered action
+     */
+    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, _id?:number | string): Socket;
+
+    public on(): Socket {
+        var action: string, callback: any, errorHandler: any, _id: number | string, id: number | string, hasErrorHandler: boolean, socket = this;
+
+        if (typeof arguments[2] === "function") hasErrorHandler = true;
+        else hasErrorHandler = false;
+
+        try {
+        action = arguments[0];
+        callback = arguments[1];
+        errorHandler = hasErrorHandler ? arguments[2] : null;
+        _id = hasErrorHandler ? arguments[3] : arguments[2];
+        } catch (e) {console.error(e);}
+
         if (_id === undefined || null) {
             id = (new Date().valueOf()) * 10000 + Math.round(Math.random() * 1000);    //timestamp as default id;
         }
         else {
             id = _id;
         }
-        console.log("id: " + id);
-        
+        // console.log(action);
+        // console.log(callback);
+        // console.log(errorHandler);
+        // console.log(id);
+         
         if (action === "open") {
             this._openSubscriptions.set(id, this._openObservable.subscribe({
                 next(d) {
                     callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
-                    console.error(msg);
+                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
                 }
             }));
         }
@@ -102,7 +120,7 @@ export class Socket {
                     callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
-                    console.error(msg);
+                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
                 }
             }));
         }
@@ -112,7 +130,7 @@ export class Socket {
                     callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
-                    console.error(msg);
+                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
                 }
             }));
         }
@@ -122,7 +140,7 @@ export class Socket {
                     callback((d.event.data), socket, d.event);
                 },
                 error(msg) {
-                    console.error(msg);
+                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
                 }
             }));
         }
@@ -141,6 +159,13 @@ export class Socket {
             console.error(e);
         }
         return this;
+    }
+
+    /**
+     * close websocket
+     */
+    public close(): void {
+        this.websocket.close();
     }
 
     //get state property
