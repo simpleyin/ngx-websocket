@@ -1,5 +1,6 @@
 import { Observable, Subscription } from "rxjs";
 import { Utils } from "./utils";
+import { Subscribe } from "./subscribe";
 /**
  * Socket class
  * each socket handles a single WebScoket Connection.
@@ -7,14 +8,12 @@ import { Utils } from "./utils";
 export class Socket {
     private websocket: WebSocket;
     private _state: string;
+    private _passingData: any;
     private _openObservable: Observable<any>;
     private _errorObservable: Observable<any>;
     private _messageObservable: Observable<any>;
     private _closeObservable: Observable<any>;
-    private _openSubscriptions: Map<number | string, Subscription>;
-    private _errorSubscriptions: Map<number | string, Subscription>;
-    private _messageSubscriptions: Map<number | string, Subscription>;
-    private _closeSubscriptions: Map<number | string, Subscription>;
+    private _subscribes: Subscribe[];
 
     constructor(private url: string) {
         try {
@@ -23,128 +22,65 @@ export class Socket {
              console.error(e);
         }
         this._state = "closed";
-        this._openSubscriptions = new Map();
-        this._errorSubscriptions = new Map();
-        this._messageSubscriptions = new Map();
-        this._closeSubscriptions = new Map();
+        this._subscribes = [];
         //onOpen
-        //there is no difference between new Observable and Observable.create()
-        this._openObservable = Observable.create((observer) => {
-            this.websocket.addEventListener("open", (e) => {
-                this._state = "opened";
-                observer.next({
-                    event: e
-                });
-            });
-        });
+        this.websocket.addEventListener("open", (e) => {
+            //websocket stream start
+            this.subscribeLoop(true);
+        })
 
         //onError
-        this._errorObservable = Observable.create((observer) => {
-            this.websocket.addEventListener("error", (e) => {
-                observer.next({
-                    event: e
-                });
-            })
-        });
+        this.websocket.addEventListener("error", (e) => {
+            console.error("websocket onError");
+        })
+
         //onMessage
         this._messageObservable = Observable.create((observer) => {
             this.websocket.addEventListener("message", (e) => {
                 observer.next({
                     event: e
                 });
+                //stream start again
+                this.subscribeLoop(false);
             });
         });
+
         //onClose
-        this._closeObservable = Observable.create((observer) => {
-            this.websocket.addEventListener("close", (e) => {
-                this._state = "closed";
-                observer.next({
-                    event: e
-                });
-            })
+        this.websocket.addEventListener("close", (e) => {
+            this._state = "closed";
+            console.warn("websocket onClose");
         });
     }
 
     /**
-     * 
-     * @param action action type, "open", "error", "message", "close"
-     * @param callback the callback funtion of the triggered action
-     * @param errorHandler handle error
-     * @param id the id of this action
+     * reveive data from previous handler, wouldn't block current stream.
+     * @param f 
      */
-    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, errorHandler: (err: any) => any, _id?: number | string,): Socket;
-    
+    public then(f: (d: any, socket?: Socket) => any): Socket {
+        this._subscribes.push(new Subscribe(0, f));
+        return this;
+    }
+
     /**
-     * @param action action type, "open", "error", "message", "close"
-     * @param callback the callback funtion of the triggered action
+     * callback funtion when websocket reveive message. 
+     * @param f 
      */
-    public on(action: string, callback: (data: any, socket?: Socket, event?: Event) => any, _id?:number | string): Socket;
+    public message(f: (text: any, d?: any, socket?: Socket, event?: Event) => any): Socket {
+        this._subscribes.push(new Subscribe(1, f));
+        return this;
+    }
 
-    public on(): Socket {
-        var action: string, callback: any, errorHandler: any, _id: number | string, id: number | string, hasErrorHandler: boolean, socket = this;
+    /**
+     * catch error or close state on websocket;
+     */
+    public catch(): Socket {
+        return this;
+    }
 
-        if (typeof arguments[2] === "function") hasErrorHandler = true;
-        else hasErrorHandler = false;
-
-        try {
-        action = arguments[0];
-        callback = arguments[1];
-        errorHandler = hasErrorHandler ? arguments[2] : null;
-        _id = hasErrorHandler ? arguments[3] : arguments[2];
-        } catch (e) {console.error(e);}
-
-        if (_id === undefined || null) {
-            id = (new Date().valueOf()) * 10000 + Math.round(Math.random() * 1000);    //timestamp as default id;
-        }
-        else {
-            id = _id;
-        }
-        // console.log(action);
-        // console.log(callback);
-        // console.log(errorHandler);
-        // console.log(id);
-         
-        if (action === "open") {
-            this._openSubscriptions.set(id, this._openObservable.subscribe({
-                next(d) {
-                    callback((d.event.data), socket, d.event);
-                },
-                error(msg) {
-                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
-                }
-            }));
-        }
-        if (action === "error") {
-            this._errorSubscriptions.set(id, this._errorObservable.subscribe({
-                next(d) {
-                    callback((d.event.data), socket, d.event);
-                },
-                error(msg) {
-                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
-                }
-            }));
-        }
-        if (action === "message") {
-            this._messageSubscriptions.set(id, this._messageObservable.subscribe({
-                next(d) {
-                    callback((d.event.data), socket, d.event);
-                },
-                error(msg) {
-                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
-                }
-            }));
-        }
-        if (action === "close") {
-            this._closeSubscriptions.set(id, this._closeObservable.subscribe({
-                next(d) {
-                    callback((d.event.data), socket, d.event);
-                },
-                error(msg) {
-                    hasErrorHandler ? errorHandler(msg) : console.error(msg);
-                }
-            }));
-        }
-
+    /**
+     * finally handler.
+     */
+    public finally(): Socket {
         return this;
     }
 
@@ -168,35 +104,38 @@ export class Socket {
         this.websocket.close();
     }
 
+    /**
+     * traversal subscirbes set, execute action according to item's type
+     * @param init if subscribeLoop is the first tiem to execute, than every 'then' handler before the first message handler will be remove after execute.
+     */
+    public subscribeLoop(init: boolean): void {
+        let socket = this;
+        for (let i = 0, len = this._subscribes.length; i < len; i++) {
+            let sub = init ? this._subscribes.shift() : this._subscribes[i];
+            
+            if (sub.type === 0) {
+                this._passingData = sub.f(this._passingData, socket);
+                this._passingData = this._passingData;
+            }
+            if (sub.type === 1) {
+                this._messageObservable.subscribe({
+                    next(d) {
+                        socket._passingData = sub.f((d.event.data), socket._passingData, socket, d.event);
+                    },
+                    error(msg) {
+                        //call the catch handler
+                    }
+                });
+                break; //the message handler will block the stream;
+            }
+        }
+    }
+
     //get state property
     public get state() {
         return this._state;
     }
 
-    /**
-     * clean all onMessage subscriber.
-     */
-    public cleanAllMessageListener(): Socket {
-        this._messageSubscriptions.forEach(s => {
-            s.unsubscribe();
-        })
-        return this;
-    }
-    
-    /**
-     * cancel onMessage listener by id
-     * @param id 
-     */
-    public clean(id: number | string): void {
-        try {
-            //remove or unsubscribe?
-            this._messageSubscriptions.get(id).unsubscribe();
-        }
-        catch(e) {
-            throw "clean event listener error";
-        }
-        
-    }
 
 
 }

@@ -1,6 +1,10 @@
 # Ngx-Websocket
 > a simple websocket connection manager for angular4+
 
+## WARNING
+
+<h3 style="color: red">This package is extreamly unstable and will be overwrited occasionally.</h3>
+
 ## How To Install
 ```shell
 npm install ngx-websocket --save
@@ -25,26 +29,14 @@ export class TestComponent {
     ) {}
 
     open(): void {
-        this.socket = this.socketSer.open("ws://echo.websocket.org").on("open", (data, socket, event) => {
-            socket.send("message");
-        }).on("message", (data) => {
-            sonsole.log(data);
-        }, 'id').on("error", (data, socket) => {
-            console.error("error");
-            socket.clean('id'); //remove onmessage listener by id.
-        }).on("close", (data) => {
-            console.warn("closed");
-        })
-    }
-
-    send(): void {
-        this.socket.send("message");
+        service.open("ws://echo.websocket.org")
+            .then((d, socket) => socket.send("hi"))
+                .message(d => d + " siri").then(d => console.log(d));
     }
 }
 ```
 
 ***
 ## TODO
-1. reconnect automatically
-2. ability to remove callback function  (done)
-3. add execute level for each backfunction
+1. error or close catch handler
+2. finally handler
