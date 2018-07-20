@@ -90,6 +90,8 @@ export class Socket {
      */
     public send(message: string): Socket {
         try {
+            console.log("send: " + message);
+            
             this.websocket.send(message);
         } catch (e) {
             console.error(e);

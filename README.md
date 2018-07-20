@@ -1,4 +1,13 @@
 # Ngx-Websocket
+
+
+
+
+[![npm](https://img.shields.io/npm/dt/express.svg)](https://www.npmjs.com/package/ngx-websocket)
+
+
+
+
 > a simple websocket connection manager for angular4+
 
 ## WARNING
