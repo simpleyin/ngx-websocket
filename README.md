@@ -3,7 +3,7 @@
 
 
 
-[![npm](https://img.shields.io/npm/dt/express.svg)](https://www.npmjs.com/package/ngx-websocket)
+[![npm](https://img.shields.io/npm/dt/ngx-websocket.svg)](https://www.npmjs.com/package/ngx-websocket)
 
 
 
