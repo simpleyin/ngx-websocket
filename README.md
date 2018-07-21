@@ -47,5 +47,6 @@ export class TestComponent {
 
 ***
 ## TODO
-1. error or close catch handler
-2. finally handler
+1. add rxjs
+2. error or close catch handler
+3. finally handler

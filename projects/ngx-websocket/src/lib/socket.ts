@@ -9,6 +9,7 @@ export class Socket {
     private websocket: WebSocket;
     private _state: string;
     private _passingData: any;
+    private _receiveData: any;
     private _openObservable: Observable<any>;
     private _errorObservable: Observable<any>;
     private _messageObservable: Observable<any>;
@@ -35,14 +36,21 @@ export class Socket {
         })
 
         //onMessage
-        this._messageObservable = Observable.create((observer) => {
-            this.websocket.addEventListener("message", (e) => {
-                observer.next({
-                    event: e
-                });
-                //stream start again
-                this.subscribeLoop(false);
-            });
+        // this._messageObservable = Observable.create((observer) => {
+        //     this.websocket.addEventListener("message", (e) => {
+        //         observer.next({
+        //             event: e
+        //         });
+        //         //stream start again
+        //         this.subscribeLoop(false);
+        //     });
+        // });
+
+        //onMessage
+        this.websocket.addEventListener("message", (e) => {
+            this._receiveData = e;
+            //stream start again
+            this.subscribeLoop(false);
         });
 
         //onClose
@@ -90,8 +98,6 @@ export class Socket {
      */
     public send(message: string): Socket {
         try {
-            console.log("send: " + message);
-            
             this.websocket.send(message);
         } catch (e) {
             console.error(e);
@@ -111,24 +117,24 @@ export class Socket {
      * @param init if subscribeLoop is the first tiem to execute, than every 'then' handler before the first message handler will be remove after execute.
      */
     public subscribeLoop(init: boolean): void {
-        let socket = this;
         for (let i = 0, len = this._subscribes.length; i < len; i++) {
-            let sub = init ? this._subscribes.shift() : this._subscribes[i];
+            let sub = this._subscribes[i];
             
             if (sub.type === 0) {
-                this._passingData = sub.f(this._passingData, socket);
-                this._passingData = this._passingData;
+                this._passingData = sub.f(this._passingData, this);
+                if (init === true) this._subscribes[i] = new Subscribe(0, () => {});
             }
             if (sub.type === 1) {
-                this._messageObservable.subscribe({
-                    next(d) {
-                        socket._passingData = sub.f((d.event.data), socket._passingData, socket, d.event);
-                    },
-                    error(msg) {
-                        //call the catch handler
-                    }
-                });
-                break; //the message handler will block the stream;
+                if (init === true) break;
+                // this._messageObservable.subscribe({
+                //     next(d) {
+                //         socket._passingData = sub.f((d.event.data), socket._passingData, socket, d.event);
+                //     },
+                //     error(msg) {
+                //         //call the catch handler
+                //     }
+                // });
+                this._passingData = sub.f(this._receiveData.data, this._passingData, this, this._receiveData);
             }
         }
     }
